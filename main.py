@@ -1,16 +1,17 @@
-# This is a sample Python script.
+import interactions
 
-# Press Umschalt+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import config
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Strg+F8 to toggle the breakpoint.
+bot = interactions.Client(token=config.token)
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+@bot.command(
+    name="helloWorld",
+    description="Hello World",
+    # scope=685499370959011855,
+)
+async def HelloWorld(ctx: interactions.CommandContext):
+    await ctx.send("Hello World!")
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+
+bot.start()
