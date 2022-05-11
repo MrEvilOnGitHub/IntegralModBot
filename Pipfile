@@ -5,6 +5,9 @@ name = "pypi"
 
 [packages]
 discord-py-interactions = "*"
+authorid = "*"
+dictionary = "*"
+components = "*"
 
 [dev-packages]
 

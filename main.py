@@ -1,139 +1,81 @@
 import interactions
-import asyncio
 
+import Events
 import config
 
 bot = interactions.Client(token=config.token)
 
-guildID = config.guildID if config.guildID else interactions.MISSING
+guild_id = config.guildID if config.guildID else interactions.MISSING
+
+current_events_setup: dict[int, Events.EventDataCollector] = dict()
 
 
 @bot.command(
-    name="hello_world",
-    description="Does this update?",
-    scope=guildID
+    name="set_channel",
+    description="Set this channel as the event channel",
+    scope=guild_id
 )
-async def hello_world(ctx: interactions.CommandContext):
-    await ctx.send("Hello there")
+async def set_channel(ctx: interactions.CommandContext):
+    Events.channel = ctx.get_channel()
+    await ctx.send("Channel set")
 
 
 @bot.command(
-    name="command_with_option",
-    description="Now this doesn't work",
-    scope=guildID,
-    options=[
-        interactions.Option(
-            name="text",
-            description="What you want to say",
-            type=interactions.OptionType.STRING,
-            required=True,
-        ),
-    ],
+    name="create_event",
+    description="Create a new event",
+    scope=guild_id
 )
-async def command_with_options(ctx: interactions.CommandContext, text: str):
-    await ctx.send(f"You said '{text}'!")
+async def create_event(ctx: interactions.CommandContext):
+    if not Events.channel:
+        await ctx.send("You need to first set a channel for the events. \
+                        Use /set_channel where you want the events to be sent to")
+        return
+    await ctx.send("Starting to event creation chain")
+    event = Events.EventDataCollector(ctx.author.id)
+    current_events_setup[event.author_id] = event
+    await ctx.send("Please enter the event name")
+    modal = interactions.Modal(
+        title="Event title",
+        custom_id="enter_event_title_text_field",
+        components=[Events.enterEventTitleTextField],
+    )
+    await ctx.popup(modal)
 
 
-@bot.command(
-    name="command_with_subcommands",
-    description="This description isn't seen in UI (yet?)",
-    scope=guildID,
-    options=[
-        interactions.Option(
-            name="first_subcommand",
-            description="Much wow",
-            type=interactions.OptionType.SUB_COMMAND,
-            options=[
-                interactions.Option(
-                    name="option",
-                    description="A descriptive description",
-                    type=interactions.OptionType.INTEGER,
-                    required=True,
-                ),
-            ],
-        ),
-        interactions.Option(
-            name="second_command",
-            description="Very pog",
-            type=interactions.OptionType.SUB_COMMAND,
-            options=[
-                interactions.Option(
-                    name="second_option",
-                    description="A descriptive description",
-                    type=interactions.OptionType.STRING,
-                    required=True,
-                ),
-            ],
-        ),
-        interactions.Option(
-            name="third_command",
-            description="Very pog",
-            type=interactions.OptionType.SUB_COMMAND,
-            options=[
-                interactions.Option(
-                    name="third_option",
-                    description="Some thing",
-                    type=interactions.OptionType.STRING,
-                    required=False,
-                )
-            ]
-        ),
-    ],
-)
-async def cmd(ctx: interactions.CommandContext,
-              sub_command: str = None,
-              second_option: str = None,
-              option: int = None,
-              third_option: str = None):
-    print(f"sub_command: {sub_command}, second_option: {second_option}, option: {option}, third_option: {third_option}")
-    if sub_command == "first_subcommand":
-        await ctx.send(f"You selected the command_name sub command and put in {option}")
-    elif sub_command == "second_command":
-        await ctx.send(f"You selected the second_command sub command and put in {second_option}")
-    elif sub_command == "third_command":
-        await ctx.send(f"You selected the third_command sub and put in {third_option}")
-    else:
-        await ctx.send("Received unknown command")
+@bot.modal("enter_event_title_text_field")
+async def enter_event_title_text_field_response(ctx: interactions.CommandContext, response: str):
+    await ctx.send("Got event title")
+    await ctx.send("Please enter the event description")
+    current_events_setup[ctx.author.id].title = response
+    modal = interactions.Modal(
+        title="Event description",
+        custom_id="enter_event_description_text_field",
+        components=[Events.enterEventDescriptionTextField]
+    )
+    await ctx.popup(modal)
 
 
-button = interactions.Button(
-    style=interactions.ButtonStyle.PRIMARY,
-    label="Button test",
-    custom_id="hello"
-)
+@bot.modal("enter_event_description_text_field")
+async def enter_event_description_text_field_response(ctx: interactions.CommandContext, response: str):
+    await ctx.send("Got event description")
+    await ctx.send("Please enter the max nr of participants")
+    current_events_setup[ctx.author.id].description = response
+    modal = interactions.Modal(
+        title="Max nr of participants",
+        custom_id="enter_event_max_participants",
+        components=[Events.enterEventParticipantsNrField]
+    )
+    await ctx.popup(modal)
 
 
-@bot.command(
-    name="button_test",
-    description="Test for a button",
-    scope=guildID,
-)
-async def button_test(ctx):
-    await ctx.send("testing", components=button)
-
-
-@bot.component("hello")
-async def button_response(ctx):
-    await ctx.send("You clicked the Button :O", ephemeral=True)
-
-
-@bot.command(
-    name="timeit",
-    description="Send an answer in x seconds",
-    scope=guildID,
-    options=[
-        interactions.Option(
-            name="time",
-            description="What you want to say",
-            type=interactions.OptionType.INTEGER,
-            required=True,
-        ),
-    ],
-)
-async def command_with_options(ctx: interactions.CommandContext, time: int):
-    await ctx.send(f"Responding in {time} seconds")
-    await asyncio.sleep(time)
-    await ctx.send("Response")
+@bot.modal("enter_event_max_participants")
+async def enter_event_max_participants_response(ctx: interactions.CommandContext, response: str):
+    try:
+        max_participants = int(response)
+        if max_participants < 0:
+            raise ValueError("Nr too low")
+    except ValueError:
+        await ctx.send("Couldn't convert your input to a valid number")
 
 
 bot.start()
